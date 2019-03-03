@@ -34,8 +34,13 @@ export default class App extends React.Component {
           patchSizeX: 2,
           patchSizeY: 300,
           angle: 1.5708,
-          gain: 2.0,
-        }
+          gain: 0.2,
+        },
+        electricBubble: {
+          filterSize: 30,
+          power: 7,
+          decay: 0.07,
+        },
       },
       kernels: {
         inkSaliency: null,
@@ -124,55 +129,75 @@ export default class App extends React.Component {
     }), () => this.refilterGlyphs("electricBubble"));
   }
 
-  refilterInkSaliency = () => {
+  refilterInkSaliency = (cb) => {
     const isK = tf.expandDims(tf.expandDims(this.state.kernels.inkSaliency, -1), -1);
     const isBias = tf.scalar(this.state.parameters.inkSaliency.bias);
-    const inkSaliency = {};
-    const inkSaliencyImages = [];
+    const inkSaliencyTensors = {};
+    const inkSaliencyImages = {};
 
     for (let g of this.state.sampleText) {
-      const isc = tf.mul(tf.add(isBias, tf.conv2d(this.state.glyphData[g].rawTensor, isK, [1, 1], 'same')), this.state.glyphData[g].rawTensor);
-      inkSaliency[g] = isc;
-      inkSaliencyImages.push(tfshowAsDataUrl(tf.squeeze(isc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0}));
+      const isc = tf.relu(tf.mul(tf.add(isBias, tf.conv2d(this.state.glyphData[g].rawTensor, isK, [1, 1], 'same')), this.state.glyphData[g].rawTensor));
+      inkSaliencyTensors[g] = isc;
+      inkSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(isc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
     }
-    this.setState(update(this.state, {glyphInkSaliencyinkSaliencyImages: {$set: inkSaliencyImages}}));
+    this.setState(update(this.state, {filteredGlyphTensors: {inkSaliency: {$set: inkSaliencyTensors}},
+                                      filteredGlyphImages: {inkSaliency: {$set: inkSaliencyImages}}}), cb);
   }
 
-  refilterWhitespaceSaliency = () => {
+  refilterWhitespaceSaliency = (cb) => {
     const wsK = tf.expandDims(tf.expandDims(this.state.kernels.whitespaceSaliency, -1), -1);
     const tfOne = tf.scalar(1.0);
-    const whitespaceSaliency = {};
-    const whitespaceSaliencyImages = [];
+    const whitespaceSaliencyTensors = {};
+    const whitespaceSaliencyImages = {};
 
     for (let g of this.state.sampleText) {
       const wsc = tf.mul(tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'), tf.sub(tfOne, this.state.glyphData[g].rawTensor));
-      whitespaceSaliencyImages.push(tfshowAsDataUrl(tf.squeeze(wsc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0}));
+      whitespaceSaliencyTensors[g] = wsc;
+      whitespaceSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(wsc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
     }
 
-    this.setState(update(this.state, {whitespaceSaliencyImages: {$set: whitespaceSaliencyImages}}));
+    this.setState(update(this.state, {filteredGlyphTensors: {whitespaceSaliency: {$set: whitespaceSaliencyTensors}},
+                                      filteredGlyphImages: {whitespaceSaliency: {$set: whitespaceSaliencyImages}}}), cb);
   }
 
-  refilterElectricBubble = () => {
+  refilterElectricBubble = (cb) => {
     const ebK = tf.expandDims(tf.expandDims(this.state.kernels.electricBubble, -1), -1);
-    const electricBubbleImages = [];
+    const electricBubbleImages = {};
+    const electricBubbleTensors = {};
+    const minClip = tf.scalar(Number.MIN_VALUE);
+    const maxClip = tf.scalar(50.);
+    const decay = tf.scalar(-this.state.parameters.electricBubble.decay);
 
     for (let g of this.state.sampleText) {
-      const totalSaliency = this.state.glyph
-      const wsc = tf.mul(tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'), tf.sub(tfOne, this.state.glyphData[g].rawTensor));
-      whitespaceSaliencyImages.push(tfshowAsDataUrl(tf.squeeze(wsc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0}));
+      const totalSaliency = tf.add(this.state.filteredGlyphTensors.inkSaliency[g], this.state.filteredGlyphTensors.whitespaceSaliency[g]);
+      const totalSaliencyPower = tf.pow(totalSaliency, this.state.parameters.electricBubble.power);
+      const wsc = tf.maximum(minClip, tf.conv2d(totalSaliencyPower, ebK, [1, 1], 'same')); // at least 0.000..001
+      const ebc = tf.exp(tf.mul(decay, tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power))));
+      electricBubbleTensors[g] = ebc;
+      electricBubbleImages[g] = tfshowAsDataUrl(tf.squeeze(ebc), this.canvasEl, this.ctx, {colormap: "hot", min: 1.0, max: 0});
     }
 
-    this.setState(update(this.state, {whitespaceSaliencyImages: {$set: whitespaceSaliencyImages}}));
+    this.setState(update(this.state, {filteredGlyphTensors: {electricBubble: {$set: electricBubbleTensors}},
+                                      filteredGlyphImages: {electricBubble: {$set: electricBubbleImages}}}), cb);
   }
 
   refilterGlyphs = (updatedParamType) => {
     if (updatedParamType === "ink") {
-      this.refilterInkSaliency();
-      // this.refilterElectricbubble();
+      this.refilterInkSaliency(() => {
+        if (this.state.kernels.electricBubble) {
+          this.refilterElectricBubble();
+        }
+      });
     }
     if (updatedParamType === "whitespace") {
-      this.refilterWhitespaceSaliency();
-      // this.refilterElectricbubble();
+      this.refilterWhitespaceSaliency(() => {
+        if (this.state.kernels.electricBubble) {
+          this.refilterElectricBubble();
+        }
+      });
+    }
+    if (updatedParamType === "electricBubble") {
+      this.refilterElectricBubble();
     }
   }
 
@@ -206,8 +231,9 @@ export default class App extends React.Component {
         <div className="column is-one-quarter">
           <h1>Electric bubble</h1>
           <input type="file" onChange={e => this.loadFontFile(e.target.files)} />
+          <div className="parameter-panel" style={{display: this.state.font ? "block" : "none"}}>
           <div>
-            <h5>Ink saliency filter</h5>
+            <h3>Ink saliency filter</h3>
             <label>Filter size ({this.state.parameters.inkSaliency.filterSize})
               <input type="range" min="3" max="300" step={1}
                      value={this.state.parameters.inkSaliency.filterSize}
@@ -244,14 +270,14 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({inkSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
             <label>Angle ({this.state.parameters.inkSaliency.angle})
-              <input type="range" min="0" max="1.5708" step={0.01}
+              <input type="range" min="0" max="1.578" step={0.001}
                      value={this.state.parameters.inkSaliency.angle}
                      onChange={(e) => this.updateParam({inkSaliency: {angle: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
             <img src={this.state.kernelImages.inkSaliency} />
           </div>
           <div>
-            <h5>Whitespace saliency filter</h5>
+            <h3>Whitespace saliency filter</h3>
             <label>Filter size ({this.state.parameters.whitespaceSaliency.filterSize})
               <input type="range" min="3" max="300" step={1}
                      value={this.state.parameters.whitespaceSaliency.filterSize}
@@ -273,26 +299,32 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({whitespaceSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <label>Angle ({this.state.parameters.whitespaceSaliency.angle})
-              <input type="range" min="0" max="1.5708" step={0.01}
+              <input type="range" min="0" max="1.578" step={0.001}
                      value={this.state.parameters.whitespaceSaliency.angle}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {angle: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <img src={this.state.kernelImages.whitespaceSaliency} />
           </div>
           <div>
-            <h5>Electric bubble</h5>
+            <h3>Electric bubble</h3>
             <label>Filter size ({this.state.parameters.electricBubble.filterSize})
               <input type="range" min="3" max="100" step={1}
                      value={this.state.parameters.electricBubble.filterSize}
                      onChange={(e) => this.updateParam({electricBubble: {filterSize: {$set: parseInt(e.target.value)}}}, this.updateElectricBubbleKernel)} />
             </label>
-            <label>Power ({this.state.parameters.electricBubble.gain})
-              <input type="range" min="0.1" max="3.0" step={0.01}
-                     value={this.state.parameters.electricBubble.gain}
-                     onChange={(e) => this.updateParam({electricBubble: {gain: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
+            <label>Power ({this.state.parameters.electricBubble.power})
+              <input type="range" min="1" max="25" step={1}
+                     value={this.state.parameters.electricBubble.power}
+                     onChange={(e) => this.updateParam({electricBubble: {power: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
+            </label>
+            <label>Decay ({this.state.parameters.electricBubble.decay})
+              <input type="range" min="0.001" max="1.0" step={0.001}
+                     value={this.state.parameters.electricBubble.decay}
+                     onChange={(e) => this.updateParam({electricBubble: {decay: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
             </label>
             <img src={this.state.kernelImages.electricBubble} />
           </div>
+        </div>
         </div>
         <div className="column">
           <input onChange={e => this.setState({sampleText: e.target.value})} value={this.state.sampleText} />
@@ -303,17 +335,21 @@ export default class App extends React.Component {
             ) : null)
           ))}
           </div>
-          {(this.state.inkSaliencyImages || []).map((im, imi) => (
-            <img src={im} key={imi} />
+          <div>
+          {String.split(this.state.sampleText, "").map((g, gi) => (
+            <img src={this.state.filteredGlyphImages.inkSaliency[g] || ""} key={gi} />
           ))}
-          <br/>
-          {(this.state.whitespaceSaliencyImages || []).map((im, imi) => (
-            <img src={im} key={imi} />
+          </div>
+          <div>
+          {String.split(this.state.sampleText, "").map((g, gi) => (
+            <img src={this.state.filteredGlyphImages.whitespaceSaliency[g] || ""} key={gi} />
           ))}
-          <br/>
-          {(this.state.electricBubbleImages || []).map((im, imi) => (
-            <img src={im} key={imi} />
+          </div>
+          <div>
+          {String.split(this.state.sampleText, "").map((g, gi) => (
+            <img src={this.state.filteredGlyphImages.electricBubble[g] || ""} key={gi} />
           ))}
+          </div>
         </div>
         <canvas ref={this.canvasRef} id="render-canvas" width={600} height={400} style={{display: "none"}}></canvas>
       </div>

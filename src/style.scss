@@ -4,11 +4,20 @@
 @import "../node_modules/bulma/sass/grid/columns.sass";
 
 
+label {
+  font-size: 80%;
+}
+
+h3 {
+  font-weight: bold;
+}
+
 /* SLIDER STYLE, from http://danielstern.ca/range.css/#  */
+
 input[type=range] {
   -webkit-appearance: none;
   width: 100%;
-  margin: 6.45px 0;
+  margin: 0;
 }
 input[type=range]:focus {
   outline: none;
@@ -25,8 +34,8 @@ input[type=range]::-webkit-slider-runnable-track {
 input[type=range]::-webkit-slider-thumb {
   box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.47), 0px 0px 1px rgba(13, 13, 13, 0.47);
   border: 0.9px solid rgba(0, 0, 0, 0.65);
-  height: 15px;
-  width: 15px;
+  height: 10px;
+  width: 10px;
   border-radius: 16px;
   background: #ffffff;
   cursor: pointer;
@@ -48,8 +57,8 @@ input[type=range]::-moz-range-track {
 input[type=range]::-moz-range-thumb {
   box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.47), 0px 0px 1px rgba(13, 13, 13, 0.47);
   border: 0.9px solid rgba(0, 0, 0, 0.65);
-  height: 15px;
-  width: 15px;
+  height: 10px;
+  width: 10px;
   border-radius: 16px;
   background: #ffffff;
   cursor: pointer;
@@ -77,8 +86,8 @@ input[type=range]::-ms-fill-upper {
 input[type=range]::-ms-thumb {
   box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.47), 0px 0px 1px rgba(13, 13, 13, 0.47);
   border: 0.9px solid rgba(0, 0, 0, 0.65);
-  height: 15px;
-  width: 15px;
+  height: 10px;
+  width: 10px;
   border-radius: 16px;
   background: #ffffff;
   cursor: pointer;
