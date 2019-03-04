@@ -6,6 +6,7 @@ import unpack from "ndarray-unpack";
 
 import {imshowAsDataUrl, tfshowAsDataUrl} from "./imshow";
 import {orientedDOG, orientedGaussian, electricBubbleKernel} from "./kernels";
+import {findBestDistance} from "./autofit";
 import "./style.scss";
 
 
@@ -31,14 +32,14 @@ export default class App extends React.Component {
         },
         whitespaceSaliency: {
           filterSize: 20,
-          patchSizeX: 2,
-          patchSizeY: 300,
+          patchSizeX: 0.01,
+          patchSizeY: 27,
           angle: 1.5708,
           gain: 0.2,
         },
         electricBubble: {
           filterSize: 30,
-          power: 7,
+          power: 22,
           decay: 0.07,
         },
       },
@@ -80,10 +81,10 @@ export default class App extends React.Component {
       const scalingFactor = this.state.fontSize / font.unitsPerEm;
       const ascender = Math.round(font.ascender * scalingFactor);
       const descender = Math.round(-font.descender * scalingFactor);
-      const boxWidth = ascender;
+      const padWidth = Math.round(ascender / 2);
       const boxHeight = ascender + descender;
 
-      this.setState({font, scalingFactor, ascender, descender, boxWidth, boxHeight});
+      this.setState({font, scalingFactor, ascender, descender, padWidth, boxHeight});
       this.renderRawGlyphs();
     };
 
@@ -99,35 +100,53 @@ export default class App extends React.Component {
     this.setState({glyphData});
   }
 
-  updateInkSaliencyKernel = () => {
+  updateInkSaliencyKernel = () => tf.tidy(() => {
     const kernel = orientedDOG(this.state.parameters.inkSaliency);
     const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -1, max: 1});
+    const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)));
 
+    if (this.state.kernels.inkSaliency) {
+      this.state.kernels.inkSaliency.dispose(); // clear out old kernel;
+    }
     this.setState(update(this.state, {
-      kernels: {inkSaliency: {$set: tf.transpose(tf.tensor2d(unpack(kernel.selection)))}},
+      kernels: {inkSaliency: {$set: kernelTensor}},
       kernelImages: {inkSaliency: {$set: kernelImageDataUrl}}
     }), () => this.refilterGlyphs("ink"));
-  }
 
-  updateWhitespaceSaliencyKernel = () => {
+    return kernelTensor;
+  })
+
+  updateWhitespaceSaliencyKernel = () => tf.tidy(() => {
     const kernel = orientedGaussian(this.state.parameters.whitespaceSaliency);
     const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -1, max: 1});
+    const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)));
 
+    if (this.state.kernels.whitespaceSaliency) {
+      this.state.kernels.whitespaceSaliency.dispose(); // clear out old kernel;
+    }
     this.setState(update(this.state, {
-      kernels: {whitespaceSaliency: {$set: tf.transpose(tf.tensor2d(unpack(kernel.selection)))}},
+      kernels: {whitespaceSaliency: {$set: kernelTensor}},
       kernelImages: {whitespaceSaliency: {$set: kernelImageDataUrl}}
     }), () => this.refilterGlyphs("whitespace"));
-  }
 
-  updateElectricBubbleKernel = () => {
+    return kernelTensor;
+  })
+
+  updateElectricBubbleKernel = () => tf.tidy(() => {
     const kernel = electricBubbleKernel(this.state.parameters.electricBubble);
     const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: 0, max: 1});
+    const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)))
 
+    if (this.state.kernels.electricBubble) {
+      this.state.kernels.electricBubble.dispose(); // clear out old kernel;
+    }
     this.setState(update(this.state, {
-      kernels: {electricBubble: {$set: tf.transpose(tf.tensor2d(unpack(kernel.selection)))}},
+      kernels: {electricBubble: {$set: kernelTensor}},
       kernelImages: {electricBubble: {$set: kernelImageDataUrl}}
     }), () => this.refilterGlyphs("electricBubble"));
-  }
+
+    return kernelTensor;
+  })
 
   refilterInkSaliency = (cb) => {
     const isK = tf.expandDims(tf.expandDims(this.state.kernels.inkSaliency, -1), -1);
@@ -135,11 +154,20 @@ export default class App extends React.Component {
     const inkSaliencyTensors = {};
     const inkSaliencyImages = {};
 
+    // dispose of old tensors
+    for (let g in this.state.filteredGlyphTensors) {
+      if (this.state.filteredGlyphTensors.inkSaliency[g]) {
+        this.state.filteredGlyphTensors.inkSaliency[g].dispose();
+      }
+    }
+
     for (let g of this.state.sampleText) {
       const isc = tf.relu(tf.mul(tf.add(isBias, tf.conv2d(this.state.glyphData[g].rawTensor, isK, [1, 1], 'same')), this.state.glyphData[g].rawTensor));
       inkSaliencyTensors[g] = isc;
       inkSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(isc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
     }
+    isK.dispose(); isBias.dispose();
+
     this.setState(update(this.state, {filteredGlyphTensors: {inkSaliency: {$set: inkSaliencyTensors}},
                                       filteredGlyphImages: {inkSaliency: {$set: inkSaliencyImages}}}), cb);
   }
@@ -150,11 +178,20 @@ export default class App extends React.Component {
     const whitespaceSaliencyTensors = {};
     const whitespaceSaliencyImages = {};
 
+    // dispose of old tensors
+    for (let g in this.state.filteredGlyphTensors) {
+      if (this.state.filteredGlyphTensors.whitespaceSaliency[g]) {
+        this.state.filteredGlyphTensors.whitespaceSaliency[g].dispose();
+      }
+    }
+
     for (let g of this.state.sampleText) {
-      const wsc = tf.mul(tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'), tf.sub(tfOne, this.state.glyphData[g].rawTensor));
+      const wsc = tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'); //, tf.sub(tfOne, this.state.glyphData[g].rawTensor));
       whitespaceSaliencyTensors[g] = wsc;
       whitespaceSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(wsc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
     }
+
+    tfOne.dispose(); wsK.dispose();
 
     this.setState(update(this.state, {filteredGlyphTensors: {whitespaceSaliency: {$set: whitespaceSaliencyTensors}},
                                       filteredGlyphImages: {whitespaceSaliency: {$set: whitespaceSaliencyImages}}}), cb);
@@ -168,14 +205,24 @@ export default class App extends React.Component {
     const maxClip = tf.scalar(50.);
     const decay = tf.scalar(-this.state.parameters.electricBubble.decay);
 
+    // dispose of old tensors
+    for (let g in this.state.filteredGlyphTensors) {
+      if (this.state.filteredGlyphTensors.electricBubble[g]) {
+        this.state.filteredGlyphTensors.electricBubble[g].dispose();
+      }
+    }
+
     for (let g of this.state.sampleText) {
-      const totalSaliency = tf.add(this.state.filteredGlyphTensors.inkSaliency[g], this.state.filteredGlyphTensors.whitespaceSaliency[g]);
+      const totalSaliency = tf.maximum(this.state.filteredGlyphTensors.inkSaliency[g], this.state.filteredGlyphTensors.whitespaceSaliency[g]);
       const totalSaliencyPower = tf.pow(totalSaliency, this.state.parameters.electricBubble.power);
       const wsc = tf.maximum(minClip, tf.conv2d(totalSaliencyPower, ebK, [1, 1], 'same')); // at least 0.000..001
-      const ebc = tf.exp(tf.mul(decay, tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power))));
+      const ebc = tf.squeeze(tf.exp(tf.mul(decay, tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power)))));
       electricBubbleTensors[g] = ebc;
-      electricBubbleImages[g] = tfshowAsDataUrl(tf.squeeze(ebc), this.canvasEl, this.ctx, {colormap: "hot", min: 1.0, max: 0});
+      electricBubbleImages[g] = tfshowAsDataUrl(ebc /* already squeezed */, this.canvasEl, this.ctx, {colormap: "hot", min: 1.0, max: 0});
+      totalSaliency.dispose(); totalSaliencyPower.dispose(); wsc.dispose();
     }
+
+    minClip.dispose(); maxClip.dispose(); decay.dispose();
 
     this.setState(update(this.state, {filteredGlyphTensors: {electricBubble: {$set: electricBubbleTensors}},
                                       filteredGlyphImages: {electricBubble: {$set: electricBubbleImages}}}), cb);
@@ -201,14 +248,24 @@ export default class App extends React.Component {
     }
   }
 
+  autofit = () => {
+    for (let i = 0; i < this.state.sampleText.length - 1; i++) {
+      const g1 = this.state.sampleText[i];
+      const g2 = this.state.sampleText[i + 1];
+      const bestoverlap = findBestDistance(this.state.filteredGlyphTensors.electricBubble[g1], this.state.filteredGlyphTensors.electricBubble[g2], this.state);
+      console.log(g1, g2, bestoverlap);
+    }
+  }
+
   updateParam = (updater, kernelFunc) => {
     this.setState(update(this.state, {parameters: updater}), kernelFunc);
   }
 
-  renderRawGlyph = (g) => {
+  renderRawGlyph = (g) => tf.tidy(() => {
     const glyph = this.state.font.stringToGlyphs(g)[0];
-    const glyphLeft = Math.round((glyph.xMin) * this.state.scalingFactor);
-    const glyphWidth = Math.floor((glyph.xMax - glyph.xMin) * this.state.scalingFactor);
+    const {xMin, xMax} = glyph.getMetrics();
+    const glyphLeft = Math.round(xMin * this.state.scalingFactor);
+    const glyphWidth = Math.floor((xMax - xMin) * this.state.scalingFactor);
     // resize the canvas and fill it with white
     this.canvasEl.height = this.state.boxHeight;
     this.canvasEl.width = glyphWidth + 2;
@@ -216,14 +273,13 @@ export default class App extends React.Component {
     this.ctx.fillRect(0, 0, this.canvasEl.width, this.canvasEl.height);
     // draw the glyph
     glyph.draw(this.ctx, 1 - glyphLeft, this.state.ascender, this.state.fontSize);
-    const imageData = this.ctx.getImageData(0, 0, 2 + glyphWidth, this.state.boxHeight);
+    const imageData = this.ctx.getImageData(0, 0, 1 + glyphWidth, this.state.boxHeight);
     let rawTensorCropped = tf.scalar(255).sub(tf.slice(tf.browser.fromPixels(this.canvasEl, 3), [0, 0, 0], [-1, -1, 1])).div(tf.scalar(255));
-    const padWidth = Math.floor((this.state.boxWidth - glyphWidth) / 2);
-    const rawTensor = tf.pad(tf.expandDims(rawTensorCropped, 0), [[0, 0], [0, 0], [padWidth, padWidth], [0, 0]])
+    const rawTensor = tf.pad(tf.expandDims(rawTensorCropped, 0), [[0, 0], [0, 0], [this.state.padWidth, this.state.padWidth], [0, 0]])
     const imageDataUrl = this.canvasEl.toDataURL();
 
     return {rawTensorCropped, rawTensor, imageDataUrl};
-  }
+  });
 
   render() {
     return (
@@ -235,7 +291,7 @@ export default class App extends React.Component {
           <div>
             <h3>Ink saliency filter</h3>
             <label>Filter size ({this.state.parameters.inkSaliency.filterSize})
-              <input type="range" min="3" max="300" step={1}
+              <input type="range" min="3" max="300" step={2}
                      value={this.state.parameters.inkSaliency.filterSize}
                      onChange={(e) => this.updateParam({inkSaliency: {filterSize: {$set: parseInt(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
@@ -270,7 +326,7 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({inkSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
             <label>Angle ({this.state.parameters.inkSaliency.angle})
-              <input type="range" min="0" max="1.578" step={0.001}
+              <input type="range" min="-1.578" max="1.578" step={0.001}
                      value={this.state.parameters.inkSaliency.angle}
                      onChange={(e) => this.updateParam({inkSaliency: {angle: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
@@ -279,12 +335,12 @@ export default class App extends React.Component {
           <div>
             <h3>Whitespace saliency filter</h3>
             <label>Filter size ({this.state.parameters.whitespaceSaliency.filterSize})
-              <input type="range" min="3" max="300" step={1}
+              <input type="range" min="3" max="300" step={2}
                      value={this.state.parameters.whitespaceSaliency.filterSize}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {filterSize: {$set: parseInt(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <label>Sigma X ({this.state.parameters.whitespaceSaliency.patchSizeX})
-              <input type="range" min="0.01" max="100" step={0.01}
+              <input type="range" min="0.001" max="0.2" step={0.001}
                      value={this.state.parameters.whitespaceSaliency.patchSizeX}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {patchSizeX: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
@@ -294,12 +350,12 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({whitespaceSaliency: {patchSizeY: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <label>Gain ({this.state.parameters.whitespaceSaliency.gain})
-              <input type="range" min="0.1" max="3.0" step={0.01}
+              <input type="range" min="0.01" max="1.0" step={0.01}
                      value={this.state.parameters.whitespaceSaliency.gain}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <label>Angle ({this.state.parameters.whitespaceSaliency.angle})
-              <input type="range" min="0" max="1.578" step={0.001}
+              <input type="range" min="-1.578" max="1.578" step={0.001}
                      value={this.state.parameters.whitespaceSaliency.angle}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {angle: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
@@ -308,7 +364,7 @@ export default class App extends React.Component {
           <div>
             <h3>Electric bubble</h3>
             <label>Filter size ({this.state.parameters.electricBubble.filterSize})
-              <input type="range" min="3" max="100" step={1}
+              <input type="range" min="3" max="100" step={2}
                      value={this.state.parameters.electricBubble.filterSize}
                      onChange={(e) => this.updateParam({electricBubble: {filterSize: {$set: parseInt(e.target.value)}}}, this.updateElectricBubbleKernel)} />
             </label>
@@ -324,6 +380,7 @@ export default class App extends React.Component {
             </label>
             <img src={this.state.kernelImages.electricBubble} />
           </div>
+          <button onClick={this.autofit}>Autofit</button>
         </div>
         </div>
         <div className="column">

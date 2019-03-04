@@ -18,7 +18,7 @@ const unscaledMultivariateGaussian = (filterSize, covarianceMatrix, rotM) => {
     for (let x = 0; x < filterSize; x++) {
       const dx = x - hfs;
       const dy = y - hfs;
-      const z = Math.exp(-(dx*(dx*s_a + dy*s_c) + dy*(dx*s_b + dy*s_d)));
+      const z = Math.exp(-(dx*(dx*s_a + dy*s_c) + dy*(dx*s_b + dy*s_d))); // (x-mu).T * invsigma * (x-mu), written out
       result.set(y, x, z);
     }
   }
