@@ -9,12 +9,17 @@ import {orientedDOG, orientedGaussian, electricBubbleKernel} from "./kernels";
 import {findBestDistance} from "./autofit";
 import "./style.scss";
 
-
 export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      sampleText: "hamburg",
+      sampleText: "hamburgefovns",
+      sampleDistances: [],
+      interactionImages: [],
+      attentionImages: [],
+      equidistImages: [],
+      angleDiffImages: [],
+      meanAngleImages: [],
       font: null,
       scalingFactor: 0.03,
       fontSize: 72,
@@ -38,10 +43,16 @@ export default class App extends React.Component {
           gain: 0.2,
         },
         electricBubble: {
-          filterSize: 30,
+          filterSize: 60,
           power: 22,
-          decay: 0.07,
+          initialStrength: 1.0,
+          distDecay: 2.0,
         },
+        angleDifferenceCoefficient: 6.9,
+        meanAngleCoefficient: 3.8,
+        equidistImportance: 4.7,
+        desiredInteraction: 0.01,
+        yFactors: "1.0, 0.5, 1.0, 0.0",
       },
       kernels: {
         inkSaliency: null,
@@ -62,6 +73,8 @@ export default class App extends React.Component {
         inkSaliency: {},
         whitespaceSaliency: {},
         electricBubble: {},
+        electricBubbleDx: {},
+        electricBubbleDy: {},
       }
     };
     this.canvasRef = React.createRef();
@@ -86,6 +99,8 @@ export default class App extends React.Component {
 
       this.setState({font, scalingFactor, ascender, descender, padWidth, boxHeight});
       this.renderRawGlyphs();
+
+      //this.updateInkSaliencyKernel(() => this.updateWhitespaceSaliencyKernel(() => this.updateElectricBubbleKernel()));
     };
 
     bufferFr.readAsArrayBuffer(files[0]);
@@ -100,9 +115,9 @@ export default class App extends React.Component {
     this.setState({glyphData});
   }
 
-  updateInkSaliencyKernel = () => tf.tidy(() => {
+  updateInkSaliencyKernel = (cb = () => null) => tf.tidy(() => {
     const kernel = orientedDOG(this.state.parameters.inkSaliency);
-    const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -1, max: 1});
+    const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -0.5, max: 0.5});
     const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)));
 
     if (this.state.kernels.inkSaliency) {
@@ -111,14 +126,14 @@ export default class App extends React.Component {
     this.setState(update(this.state, {
       kernels: {inkSaliency: {$set: kernelTensor}},
       kernelImages: {inkSaliency: {$set: kernelImageDataUrl}}
-    }), () => this.refilterGlyphs("ink"));
+    }), () => {this.refilterGlyphs("ink"); cb();});
 
     return kernelTensor;
   })
 
-  updateWhitespaceSaliencyKernel = () => tf.tidy(() => {
+  updateWhitespaceSaliencyKernel = (cb = () => null) => tf.tidy(() => {
     const kernel = orientedGaussian(this.state.parameters.whitespaceSaliency);
-    const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -1, max: 1});
+    const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: -0.5, max: 0.5});
     const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)));
 
     if (this.state.kernels.whitespaceSaliency) {
@@ -127,12 +142,12 @@ export default class App extends React.Component {
     this.setState(update(this.state, {
       kernels: {whitespaceSaliency: {$set: kernelTensor}},
       kernelImages: {whitespaceSaliency: {$set: kernelImageDataUrl}}
-    }), () => this.refilterGlyphs("whitespace"));
+    }), () => {this.refilterGlyphs("whitespace"); cb();});
 
     return kernelTensor;
   })
 
-  updateElectricBubbleKernel = () => tf.tidy(() => {
+  updateElectricBubbleKernel = (cb = () => null) => tf.tidy(() => {
     const kernel = electricBubbleKernel(this.state.parameters.electricBubble);
     const kernelImageDataUrl = imshowAsDataUrl(kernel, this.canvasEl, this.ctx, {colormap: "picnic", min: 0, max: 1});
     const kernelTensor = tf.transpose(tf.tensor2d(unpack(kernel.selection)))
@@ -143,7 +158,7 @@ export default class App extends React.Component {
     this.setState(update(this.state, {
       kernels: {electricBubble: {$set: kernelTensor}},
       kernelImages: {electricBubble: {$set: kernelImageDataUrl}}
-    }), () => this.refilterGlyphs("electricBubble"));
+    }), () => {this.refilterGlyphs("electricBubble"); cb();});
 
     return kernelTensor;
   })
@@ -161,10 +176,14 @@ export default class App extends React.Component {
       }
     }
 
+    const runConv = g => tf.tidy(() => {
+      return tf.relu(tf.mul(tf.add(isBias, tf.conv2d(this.state.glyphData[g].rawTensor, isK, [1, 1], 'same')), this.state.glyphData[g].rawTensor));
+    });
+
     for (let g of this.state.sampleText) {
-      const isc = tf.relu(tf.mul(tf.add(isBias, tf.conv2d(this.state.glyphData[g].rawTensor, isK, [1, 1], 'same')), this.state.glyphData[g].rawTensor));
+      const isc = runConv(g);
       inkSaliencyTensors[g] = isc;
-      inkSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(isc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
+      inkSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(isc), this.canvasEl, this.ctx, {colormap: "hot"});
     }
     isK.dispose(); isBias.dispose();
 
@@ -185,10 +204,14 @@ export default class App extends React.Component {
       }
     }
 
+    const runConv = g => tf.tidy(() => {
+      return tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'); //, tf.sub(tfOne, this.state.glyphData[g].rawTensor));
+    });
+
     for (let g of this.state.sampleText) {
-      const wsc = tf.conv2d(this.state.glyphData[g].rawTensor, wsK, [1, 1], 'same'); //, tf.sub(tfOne, this.state.glyphData[g].rawTensor));
+      const wsc = runConv(g);
       whitespaceSaliencyTensors[g] = wsc;
-      whitespaceSaliencyImages[g] = tfshowAsDataUrl(tf.squeeze(wsc), this.canvasEl, this.ctx, {colormap: "hot", min: 3, max: 0});
+      whitespaceSaliencyImages[g] = tfshowAsDataUrl(tf.mul(tf.squeeze(wsc), tf.scalar(-1)), this.canvasEl, this.ctx, {colormap: "hot"});
     }
 
     tfOne.dispose(); wsK.dispose();
@@ -201,9 +224,14 @@ export default class App extends React.Component {
     const ebK = tf.expandDims(tf.expandDims(this.state.kernels.electricBubble, -1), -1);
     const electricBubbleImages = {};
     const electricBubbleTensors = {};
+    const electricBubbleDxTensors = {};
+    const electricBubbleDyTensors = {};
     const minClip = tf.scalar(Number.MIN_VALUE);
     const maxClip = tf.scalar(50.);
-    const decay = tf.scalar(-this.state.parameters.electricBubble.decay);
+    const initialStrength = tf.scalar(this.state.parameters.electricBubble.initialStrength);
+
+    const gxK = tf.expandDims(tf.expandDims(tf.tensor2d([[1, -1]], [1, 2]), -1), -1);
+    const gyK = tf.expandDims(tf.expandDims(tf.tensor2d([[1], [-1]], [2, 1]), -1), -1);
 
     // dispose of old tensors
     for (let g in this.state.filteredGlyphTensors) {
@@ -212,19 +240,37 @@ export default class App extends React.Component {
       }
     }
 
-    for (let g of this.state.sampleText) {
-      const totalSaliency = tf.maximum(this.state.filteredGlyphTensors.inkSaliency[g], this.state.filteredGlyphTensors.whitespaceSaliency[g]);
+    const runConv = g => tf.tidy(() => {
+      const totalSaliency = tf.add(this.state.filteredGlyphTensors.inkSaliency[g], this.state.filteredGlyphTensors.whitespaceSaliency[g]);
       const totalSaliencyPower = tf.pow(totalSaliency, this.state.parameters.electricBubble.power);
       const wsc = tf.maximum(minClip, tf.conv2d(totalSaliencyPower, ebK, [1, 1], 'same')); // at least 0.000..001
-      const ebc = tf.squeeze(tf.exp(tf.mul(decay, tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power)))));
+      //const ebc4d = tf.exp(tf.mul(decay, tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power))))
+      const ebc4d = tf.div(initialStrength, tf.pow(tf.minimum(maxClip, tf.pow(wsc, -1./this.state.parameters.electricBubble.power)), tf.scalar(this.state.parameters.electricBubble.distDecay)));
+      const ebc = tf.squeeze(ebc4d); // tf.mul(tf.squeeze(ebc4d), tf.sub(tf.scalar(1.0), tf.squeeze(this.state.glyphData[g].rawTensor))); // don't multiply away glyph
+      // now also calculate the angle of the gradient
+      const gx = tf.squeeze(tf.conv2d(ebc4d, gxK, [1, 1], 'same'));
+      const gy = tf.squeeze(tf.conv2d(ebc4d, gyK, [1, 1], 'same'));
+      return [ebc, gx, gy]; // electric bubble and the bubble's angle field
+    });
+
+    for (let g of this.state.sampleText) {
+      const [ebc, dx, dy] = runConv(g);
       electricBubbleTensors[g] = ebc;
-      electricBubbleImages[g] = tfshowAsDataUrl(ebc /* already squeezed */, this.canvasEl, this.ctx, {colormap: "hot", min: 1.0, max: 0});
-      totalSaliency.dispose(); totalSaliencyPower.dispose(); wsc.dispose();
+      electricBubbleDxTensors[g] = dx;
+      electricBubbleDyTensors[g] = dy;
+      electricBubbleImages[g] = tfshowAsDataUrl(ebc /* already squeezed */, this.canvasEl, this.ctx, {colormap: "hot", max: this.state.parameters.electricBubble.initialStrength});
     }
 
-    minClip.dispose(); maxClip.dispose(); decay.dispose();
+    minClip.dispose(); maxClip.dispose(); initialStrength.dispose(); ebK.dispose(); gxK.dispose(); gyK.dispose();
+    // dispose of bubbles currently saved
+    Object.values(this.state.filteredGlyphTensors.electricBubble).forEach(t => t.dispose());
+    Object.values(this.state.filteredGlyphTensors.electricBubbleDx).forEach(t => t.dispose());
+    Object.values(this.state.filteredGlyphTensors.electricBubbleDy).forEach(t => t.dispose());
 
-    this.setState(update(this.state, {filteredGlyphTensors: {electricBubble: {$set: electricBubbleTensors}},
+    this.setState(update(this.state, {filteredGlyphTensors: {electricBubble: {$set: electricBubbleTensors},
+                                                             electricBubbleDx: {$set: electricBubbleDxTensors},
+                                                             electricBubbleDy: {$set: electricBubbleDyTensors},
+                                                            },
                                       filteredGlyphImages: {electricBubble: {$set: electricBubbleImages}}}), cb);
   }
 
@@ -249,12 +295,28 @@ export default class App extends React.Component {
   }
 
   autofit = () => {
+    const sampleDistances = [];
+    const interactionImages = [], attentionImages = [], equidistImages = [], angleDiffImages = [], meanAngleImages = [];
     for (let i = 0; i < this.state.sampleText.length - 1; i++) {
       const g1 = this.state.sampleText[i];
       const g2 = this.state.sampleText[i + 1];
-      const bestoverlap = findBestDistance(this.state.filteredGlyphTensors.electricBubble[g1], this.state.filteredGlyphTensors.electricBubble[g2], this.state);
-      console.log(g1, g2, bestoverlap);
+      const [dist, interactionImage, attentionImage, equidistImage, angleDiffImage, meanAngleImage] = findBestDistance(
+        this.state.filteredGlyphTensors.electricBubble[g1],
+        this.state.filteredGlyphTensors.electricBubbleDx[g1],
+        this.state.filteredGlyphTensors.electricBubbleDy[g1],
+        this.state.filteredGlyphTensors.electricBubble[g2],
+        this.state.filteredGlyphTensors.electricBubbleDx[g2],
+        this.state.filteredGlyphTensors.electricBubbleDy[g2],
+        this.state, this.canvasEl, this.ctx);
+      sampleDistances.push(dist)
+      interactionImages.push(interactionImage);
+      attentionImages.push(attentionImage);
+      equidistImages.push(equidistImage);
+      angleDiffImages.push(angleDiffImage);
+      meanAngleImages.push(meanAngleImage);
+      console.log(g1, g2, dist);
     }
+    this.setState({sampleDistances, interactionImages, attentionImages, equidistImages, angleDiffImages, meanAngleImages});
   }
 
   updateParam = (updater, kernelFunc) => {
@@ -295,15 +357,15 @@ export default class App extends React.Component {
                      value={this.state.parameters.inkSaliency.filterSize}
                      onChange={(e) => this.updateParam({inkSaliency: {filterSize: {$set: parseInt(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
-            <label>Sigma X ({this.state.parameters.inkSaliency.patchSizeX})
-              <input type="range" min="0.01" max="100" step={0.01}
-                     value={this.state.parameters.inkSaliency.patchSizeX}
-                     onChange={(e) => this.updateParam({inkSaliency: {patchSizeX: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
-            </label>
-            <label>Sigma Y ({this.state.parameters.inkSaliency.patchSizeY})
+            <label>Sigma Horiz. ({this.state.parameters.inkSaliency.patchSizeY})
               <input type="range" min="0.01" max="100" step={0.01}
                      value={this.state.parameters.inkSaliency.patchSizeY}
                      onChange={(e) => this.updateParam({inkSaliency: {patchSizeY: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
+            </label>
+            <label>Sigma Vert. ({this.state.parameters.inkSaliency.patchSizeX})
+              <input type="range" min="0.01" max="500" step={0.01}
+                     value={this.state.parameters.inkSaliency.patchSizeX}
+                     onChange={(e) => this.updateParam({inkSaliency: {patchSizeX: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
             <label>Valley size (relative) ({this.state.parameters.inkSaliency.valleyPeakRatio})
               <input type="range" min="0.1" max="10" step={0.1}
@@ -321,7 +383,7 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({inkSaliency: {bias: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
             <label>Gain ({this.state.parameters.inkSaliency.gain})
-              <input type="range" min="0.1" max="3.0" step={0.01}
+              <input type="range" min="0.0" max="3.0" step={0.01}
                      value={this.state.parameters.inkSaliency.gain}
                      onChange={(e) => this.updateParam({inkSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateInkSaliencyKernel)} />
             </label>
@@ -350,7 +412,7 @@ export default class App extends React.Component {
                      onChange={(e) => this.updateParam({whitespaceSaliency: {patchSizeY: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
             <label>Gain ({this.state.parameters.whitespaceSaliency.gain})
-              <input type="range" min="0.01" max="1.0" step={0.01}
+              <input type="range" min="0.00" max="1.0" step={0.01}
                      value={this.state.parameters.whitespaceSaliency.gain}
                      onChange={(e) => this.updateParam({whitespaceSaliency: {gain: {$set: parseFloat(e.target.value)}}}, this.updateWhitespaceSaliencyKernel)} />
             </label>
@@ -373,10 +435,39 @@ export default class App extends React.Component {
                      value={this.state.parameters.electricBubble.power}
                      onChange={(e) => this.updateParam({electricBubble: {power: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
             </label>
-            <label>Decay ({this.state.parameters.electricBubble.decay})
-              <input type="range" min="0.001" max="1.0" step={0.001}
-                     value={this.state.parameters.electricBubble.decay}
-                     onChange={(e) => this.updateParam({electricBubble: {decay: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
+            <label>InitialStrength ({this.state.parameters.electricBubble.initialStrength})
+              <input type="range" min="0.001" max="20.0" step={0.001}
+                     value={this.state.parameters.electricBubble.initialStrength}
+                     onChange={(e) => this.updateParam({electricBubble: {initialStrength: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
+            </label>
+            <label>DistDecay ({this.state.parameters.electricBubble.distDecay})
+              <input type="range" min="0.001" max="20.0" step={0.001}
+                     value={this.state.parameters.electricBubble.distDecay}
+                     onChange={(e) => this.updateParam({electricBubble: {distDecay: {$set: parseFloat(e.target.value)}}}, this.updateElectricBubbleKernel)} />
+            </label>
+            <label>Equidist importance ({this.state.parameters.equidistImportance})
+              <input type="range" min="0.5" max="10.0" step={0.001}
+                     value={this.state.parameters.equidistImportance}
+                     onChange={(e) => this.updateParam({equidistImportance: {$set: parseFloat(e.target.value)}}, () => null)} />
+            </label>
+            <label>Angle diff importance ({this.state.parameters.angleDifferenceCoefficient})
+              <input type="range" min="0.01" max="10.0" step={0.001}
+                     value={this.state.parameters.angleDifferenceCoefficient}
+                     onChange={(e) => this.updateParam({angleDifferenceCoefficient: {$set: parseFloat(e.target.value)}}, () => null)} />
+            </label>
+            <label>Mean angle factor ({this.state.parameters.meanAngleCoefficient})
+              <input type="range" min="0.01" max="20.0" step={0.001}
+                     value={this.state.parameters.meanAngleCoefficient}
+                     onChange={(e) => this.updateParam({meanAngleCoefficient: {$set: parseFloat(e.target.value)}}, () => null)} />
+            </label>
+            <label>Y factors
+              <input value={this.state.parameters.yFactors}
+                     onChange={(e) => this.updateParam({yFactors: {$set: e.target.value}}, () => null)} />
+            </label>
+            <label>Desired interaction ({this.state.parameters.desiredInteraction})
+              <input type="range" min="0.001" max="10" step={0.0001}
+                     value={this.state.parameters.desiredInteraction}
+                     onChange={(e) => this.updateParam({desiredInteraction: {$set: parseFloat(e.target.value)}}, () => null)} />
             </label>
             <img src={this.state.kernelImages.electricBubble} />
           </div>
@@ -386,25 +477,56 @@ export default class App extends React.Component {
         <div className="column">
           <input onChange={e => this.setState({sampleText: e.target.value})} value={this.state.sampleText} />
           <div>
-          {String.split(this.state.sampleText, "").map((g, gi) => (
+          {this.state.sampleText.split("").map((g, gi) => (
             (this.state.glyphData[g] ? (
               <img src={this.state.glyphData[g].imageDataUrl || ""} key={gi} />
             ) : null)
           ))}
           </div>
           <div>
-          {String.split(this.state.sampleText, "").map((g, gi) => (
+            {this.state.sampleText.split("").map((g, gi) => (
             <img src={this.state.filteredGlyphImages.inkSaliency[g] || ""} key={gi} />
           ))}
           </div>
           <div>
-          {String.split(this.state.sampleText, "").map((g, gi) => (
+            {this.state.sampleText.split("").map((g, gi) => (
             <img src={this.state.filteredGlyphImages.whitespaceSaliency[g] || ""} key={gi} />
           ))}
           </div>
           <div>
-          {String.split(this.state.sampleText, "").map((g, gi) => (
+            {this.state.sampleText.split("").map((g, gi) => (
             <img src={this.state.filteredGlyphImages.electricBubble[g] || ""} key={gi} />
+          ))}
+          </div>
+          <div>
+            {this.state.sampleText.split("").map((g, gi) => (
+            <img src={(this.state.glyphData[g] || {imageDataUrl: ""}).imageDataUrl} key={gi} style={{marginRight: (this.state.sampleDistances[gi] || 0) + "px"}} />
+          ))}
+          </div>
+          <span>2*padwidth: {2 * this.state.padWidth}</span>
+          <div>
+            {this.state.equidistImages.map((gdu, gi) => (
+            <img src={gdu || ""} key={gi} style={{marginRight: "2px"}} />
+          ))}
+          </div>
+          <div>
+            {this.state.angleDiffImages.map((gdu, gi) => (
+            <img src={gdu || ""} key={gi} style={{marginRight: "2px"}} />
+          ))}
+          </div>
+          <div>
+            {this.state.meanAngleImages.map((gdu, gi) => (
+            <img src={gdu || ""} key={gi} style={{marginRight: "2px"}} />
+          ))}
+          </div>
+          <div>
+            {this.state.attentionImages.map((gdu, gi) => (
+            <img src={gdu || ""} key={gi} style={{marginRight: "2px"}} />
+          ))}
+          </div>
+          <div>
+            {this.state.interactionImages.map((gdu, gi) => (
+            <img src={gdu || ""} key={gi} style={{marginRight: "2px"}} />
           ))}
           </div>
         </div>

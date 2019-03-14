@@ -41,19 +41,21 @@ export const orientedDOG = (params) => {
   const peak = unscaledMultivariateGaussian(params.filterSize, nj.array([[params.patchSizeX, 0], [0, params.patchSizeY]]), rotM);
   const valley = unscaledMultivariateGaussian(params.filterSize, nj.array([[params.patchSizeX * params.valleyPeakRatio, 0], [0, params.patchSizeY * params.valleyPeakRatio]]), rotM);
   const envelope = unscaledMultivariateGaussian(params.filterSize, nj.array([[params.patchSizeX / 2, 0], [0, 1000 * params.filterSize]]), rotM);
+  //
+  //const envelope1 = unscaledMultivariateGaussian(params.filterSize, nj.array)
   return peak.subtract(valley.multiply(params.valleyGain)).multiply(envelope).multiply(params.gain);
 };
 
 /* Electric potential / approximate distance transform kernel */
 export const electricBubbleKernel = (params) => {
   const result = nj.zeros([params.filterSize, params.filterSize]);
-  const hfs = Math.round(params.filterSize / 2);
+  const hfs = params.filterSize / 2 - 0.5;
   const halfpower = params.power / 2; // instead of sqrt-ing and then squaring again
   for (let y = 0; y < params.filterSize; y++) {
     for (let x = 0; x < params.filterSize; x++) {
       const dx = x - hfs;
       const dy = y - hfs;
-      const dist = (dx * dx + dy * dy) || 1; // no sqrt here, but we'll only use half the power
+      const dist = (1.0 * dx * dx + 1.0 * dy * dy) || 1; // no sqrt here, but we'll only use half the power
       const z = 1 / (dist ** halfpower);
       result.set(y, x, z);
     }
