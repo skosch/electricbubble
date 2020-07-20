@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="148.86913mm"
+   height="77.6418mm"
+   viewBox="0 0 148.86913 77.6418"
+   version="1.1"
+   id="svg14408"
+   inkscape:export-filename="/home/sebastian/aldusleaf6/themes/default/assets/images/atomic_kern/llltlll.png"
+   inkscape:export-xdpi="256.27802"
+   inkscape:export-ydpi="256.27802"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="llltlll.svg">
+  <defs
+     id="defs14402">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient14967">
+      <stop
+         style="stop-color:#8403ce;stop-opacity:1"
+         offset="0"
+         id="stop14963" />
+      <stop
+         style="stop-color:#b0d0f2;stop-opacity:0.65098041"
+         offset="1"
+         id="stop14965" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient14967"
+       id="linearGradient14969"
+       x1="23.710138"
+       y1="194.51137"
+       x2="36.135227"
+       y2="194.51137"
+       gradientUnits="userSpaceOnUse"
+       spreadMethod="reflect"
+       gradientTransform="matrix(0.86490682,0,0,1.3899522,23.262824,-205.19872)" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.7"
+     inkscape:cx="-21.087261"
+     inkscape:cy="496.51097"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="3200"
+     inkscape:window-height="1736"
+     inkscape:window-x="0"
+     inkscape:window-y="32"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata14405">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-32.740517,-24.843082)">
+    <rect
+       style="opacity:0.62699998;fill:url(#linearGradient14969);fill-opacity:1;stroke:none;stroke-width:0.19999999;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect14961"
+       width="148.86913"
+       height="77.6418"
+       x="32.740517"
+       y="24.843082" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14971"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 35.324015,97.215113 H 51.91987 c -3.757552,-1.64393 -4.775222,-3.44443 -4.775222,-6.57572 V 36.154894 l -11.116092,3.757551 c 1.3308,2.035344 2.6616,3.91412 3.992399,5.949454 v 44.777494 c 0,3.13129 -1.252517,4.93179 -4.69694,6.57572 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14973"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 56.882235,97.215113 h 16.595851 c -3.757552,-1.64393 -4.775219,-3.44443 -4.775219,-6.57572 V 36.154894 l -11.116091,3.757551 c 1.3308,2.035344 2.6616,3.91412 3.992399,5.949454 v 44.777494 c 0,3.13129 -1.252517,4.93179 -4.69694,6.57572 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14975"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 78.440457,97.215113 h 16.595848 c -3.757552,-1.64393 -4.775219,-3.44443 -4.775219,-6.57572 V 36.154894 l -11.116088,3.757551 c 1.330794,2.035344 2.661597,3.91412 3.992399,5.949454 v 44.777494 c 0,3.13129 -1.252523,4.93179 -4.69694,6.57572 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14977"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 113.28365,97.841373 c 5.47976,0 9.15903,-2.03534 9.70701,-6.41916 -1.72221,0.86111 -4.07068,1.64393 -7.04541,1.64393 -3.60099,0 -6.02774,-1.95705 -6.02774,-5.87117 v -23.32813 h 12.68174 l 0.39141,-3.52271 h -12.99487 v -8.53277 l -12.368609,12.05548 h 5.244919 l -0.15656,23.71954 c -0.0783,6.88884 4.22724,10.25499 10.56811,10.25499 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14979"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 121.50744,97.215113 h 16.59586 c -3.75756,-1.64393 -4.77523,-3.44443 -4.77523,-6.57572 V 36.154894 l -11.11609,3.757551 c 1.3308,2.035344 2.6616,3.91412 3.9924,5.949454 v 44.777494 c 0,3.13129 -1.25252,4.93179 -4.69694,6.57572 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14981"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 143.06566,97.215113 h 16.59586 c -3.75756,-1.64393 -4.77523,-3.44443 -4.77523,-6.57572 V 36.154894 l -11.11609,3.757551 c 1.3308,2.035344 2.6616,3.91412 3.9924,5.949454 v 44.777494 c 0,3.13129 -1.25252,4.93179 -4.69694,6.57572 z" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path14983"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:85.33333588px;line-height:125%;font-family:'Reforma 1918';-inkscape-font-specification:'Reforma 1918, ';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.07630974px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 164.62388,97.215113 h 16.59586 c -3.75756,-1.64393 -4.77523,-3.44443 -4.77523,-6.57572 V 36.154894 l -11.11609,3.757551 c 1.3308,2.035344 2.6616,3.91412 3.9924,5.949454 v 44.777494 c 0,3.13129 -1.25252,4.93179 -4.69694,6.57572 z" />
+  </g>
+</svg>
